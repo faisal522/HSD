@@ -1,0 +1,53 @@
+library(tidyverse)
+library(ggpubr)
+library(rstatix)
+library(ggthemes)
+library(pastecs)
+library(dplyr)
+library(ggplot2)
+library(lubridate)
+library(readr)
+library(ggplot2)
+library(multcompView)
+library(emmeans)
+library(multcomp)
+#read data file in any format 
+data <- read.delim("x////FIlE NAME.txt")
+names(data)
+head(data)
+#Get summary statistics of data, group data by any of your catagorical varibale e.g. Treatments, Block, Replication etc.
+data_summary <- group_by(data, Treatment, Replication) %>%
+    get_summary_stats(Dry.weight , type = "mean_sd") %>%
+  arrange(desc(mean))
+print(data_summary)
+#Perform analysis of vaiance
+anova <- aov(Dry.weight~ Treatment*Replication , data=data)
+#Extract result of Analysis of variance 
+summary(anova)
+#Perform TUKEY test ON ANOVA results 
+tukey <- TukeyHSD(anova)
+print(tukey)
+#Plot TUKEY results to see contribution of treatments and replications to dry weight
+plot(tukey, las = 2)
+tukey.cld <- multcompLetters4(anova, tukey)
+print(tukey.cld)
+#Display compact letters for each treatment and their combinatins 
+cld <- as.data.frame.list(tukey.cld$`Treatment:Replication `)
+#Extract comact letters for Trearment Replication interaction
+data_summary$Tukey <- cld$Letters
+#Finally print data summary and compact letters side by side
+print(data_summary)
+#Use below line only if you want to order x axis (for example june 22 is before Arpril 2023)
+data_summary$Data.Point <- factor(data_summary$Data.Point,levels = c("Jun 22", "Sep 22", "Apr 23", "May 23"))
+#Lets bild a bargraph 
+png(file="TITLE OF GRAPH ?????.png", res=300, width=2200, height=2200)
+ggplot(data_summary, aes(x =Treatment , y = mean, fill =Replication , colour = Replication )) + scale_fill_grey()+
+  geom_bar(stat = "identity", color="black",position = "dodge")+
+  geom_text(aes(label=Tukey), position = position_dodge(0.90), size = 5, 
+            vjust=-0.35, hjust=-0.05, colour = "gray25") +
+  geom_bar(stat = "identity",color="black", position = "dodge") +
+  geom_errorbar(aes(ymin=mean, ymax=mean+sd), position = position_dodge(0.9), col="black", width = 0.25)+
+  theme_bw()+ theme(text = element_text(size = 14))+   labs(x="Treatment", y = (~paste("Dry.weight (" * mu ~ "m)")))+ 
+  theme(legend.position='top')+  theme(axis.title = element_text(size = 18),legend.text=element_text(size=16),axis.text = element_text(size = 16,colour = "black"), 
+        legend.title=element_text(size=16), strip.text.x = element_text(size = 16))
+dev.off()
